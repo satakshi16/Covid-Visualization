@@ -12,6 +12,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objs as go
 import numpy as np
+import urllib
 
 from datetime import datetime
 
@@ -30,13 +31,16 @@ external_stylesheets = [dbc.themes.BOOTSTRAP]
 app = dash.Dash(external_stylesheets=external_stylesheets)
 
 ## Read file
+outfilename = r"../Data/owid-covid-data.xlsx"
+url_of_file = "https://covid.ourworldindata.org/data/owid-covid-data.xlsx"
+urllib.request.urlretrieve(url_of_file, outfilename)
 df = pd.read_excel(r"../Data/owid-covid-data.xlsx")
 
 ## Remove data about World - we will be looking at individual locations
 df = df[df['location']!='World']
 
-## Fill 0 if total cases on a day was 0
-df['total_cases'] = df['total_cases'].fillna(0)
+## Fill 0 if new cases on a day was null
+df['new_cases'] = df['new_cases'].fillna(0)
 
 ## Sort by date so we have in a proper order
 df = df.sort_values(by=['date'])
@@ -53,7 +57,7 @@ d = {k: oldk for oldk, k in dateMapping.items()}
 df["key"] = df['monthYear'].map(d)
 
 ## to limit our scale
-worldPop = 950000000
+worldPop = 16000000
 
 app.layout = html.Div([
     html.Div([
@@ -103,16 +107,16 @@ app.layout = html.Div([
 def update_output(value):
     dataDF = df[(df['key']>=0)&(df['key']<=value)][['key',
                                                    'location',
-                                                   'total_cases',
-                                                   'total_deaths']]
-    dataDF = dataDF.groupby(['location']).agg({'total_cases':'sum',
-                                               'total_deaths':'sum'}).reset_index()
-    dataDF = dataDF.sort_values('total_cases',ascending=False)
+                                                   'new_cases',
+                                                   'new_deaths']]
+    dataDF = dataDF.groupby(['location']).agg({'new_cases':'sum',
+                                               'new_deaths':'sum'}).reset_index()
+    dataDF = dataDF.sort_values('new_cases',ascending=False)
     
     fig = go.Figure(
         data=go.Choropleth(
             locations = dataDF['location'], # Spatial coordinates
-            z = dataDF['total_cases'], # Data to be color-coded
+            z = dataDF['new_cases'], # Data to be color-coded
             locationmode = 'country names', # set of locations match entries in `locations`
             colorscale = 'Reds',
             zmin = 0,
@@ -130,7 +134,7 @@ def update_output(value):
     fig2 = go.Figure([
         go.Bar(
             x=dataDF['location'].head(5), 
-            y=dataDF['total_cases'].head(5)
+            y=dataDF['new_cases'].head(5)
             )
         ])
     fig2.update_layout(
@@ -141,12 +145,12 @@ def update_output(value):
         'xanchor': 'center',
         'yanchor': 'top'})
     
-    dataDF = dataDF.sort_values('total_deaths',ascending=False)
+    dataDF = dataDF.sort_values('new_deaths',ascending=False)
     
     fig3 = go.Figure([
         go.Bar(
             x=dataDF['location'].head(5), 
-            y=dataDF['total_deaths'].head(5)
+            y=dataDF['new_deaths'].head(5)
             )
         ])
     fig3.update_layout(
